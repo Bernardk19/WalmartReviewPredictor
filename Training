@@ -1,0 +1,110 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+import joblib
+
+#Load
+def load_data(file_path):
+   
+    df = pd.read_csv(file_path)
+    return df
+
+
+def preprocess_data(df):
+  
+    df['rating'] = df['rating'].str.extract('(\d)').astype(int)
+    
+ 
+    df = df.dropna(subset=['review', 'rating'])
+    
+  
+    df['review'] = df['review'].str.replace(r'[^A-Za-z0-9\s]', '', regex=True)
+    
+    return df
+
+
+def train_model(df):
+   
+    X = df['review']
+    y = df['rating']
+    
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    #TF-IDF 
+    vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2)) 
+    X_train_tfidf = vectorizer.fit_transform(X_train)
+    X_test_tfidf = vectorizer.transform(X_test)
+    
+    
+    model = LogisticRegression(max_iter=1000, class_weight='balanced')  
+    model.fit(X_train_tfidf, y_train)
+    
+   
+    y_pred = model.predict(X_test_tfidf)
+    
+    
+    print("Model Evaluation:")
+    print(classification_report(y_test, y_pred)) 
+    
+    
+    joblib.dump(model, 'review_model.pkl')
+    joblib.dump(vectorizer, 'vectorizer.pkl')
+    
+    return model, vectorizer
+
+
+def main():
+   
+    df = load_data('C:/Users/berna/cleaned_walmart_reviews.csv')
+    
+   
+    df = preprocess_data(df)
+    
+    
+    model, vectorizer = train_model(df)
+    
+    return model, vectorizer
+
+
+if __name__ == "__main__":
+    model, vectorizer = main()
+
+import gradio as gr
+import joblib
+import numpy as np
+
+
+model = joblib.load('review_model.pkl')
+vectorizer = joblib.load('vectorizer.pkl')
+
+
+def predict_rating(review_text):
+   
+    review_tfidf = vectorizer.transform([review_text])
+    
+   
+    prediction = model.predict(review_tfidf)
+    
+    
+    return int(prediction[0])
+
+
+def create_interface():
+    
+    iface = gr.Interface(
+        fn=predict_rating,  # The function that makes predictions
+        inputs=gr.Textbox(label="Enter your review", placeholder="Write your review here..."),
+        outputs=gr.Textbox(label="Predicted Rating"),
+        title="Review Rating Prediction",  # Title of the interface
+        description="Enter a product review and get a prediction of its star rating (1-5)."
+    )
+    
+   
+    iface.launch()
+
+
+if __name__ == "__main__":
+    create_interface()
