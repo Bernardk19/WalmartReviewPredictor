@@ -1,0 +1,24 @@
+import pandas as pd
+import re
+
+
+file_path = r'C:\Users\berna\walmart_reviews.csv'
+df = pd.read_csv(file_path)
+
+def clean_reviews(text):
+    # Remove 'No review text'
+    if text == "No review text":
+        return None
+   
+    if not all(ord(c) < 128 for c in text):
+        return None
+    return text
+
+
+df['review'] = df['review'].apply(clean_reviews)
+
+df = df.dropna(subset=['review'])
+
+cleaned_file_path = r'C:\Users\berna\cleaned_walmart_reviews.csv'
+df.to_csv(cleaned_file_path, index=False)
+
