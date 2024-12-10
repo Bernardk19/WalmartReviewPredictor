@@ -1,0 +1,63 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import time
+
+def scrape_walmart_reviews(product_url, max_pages=5):
+    reviews = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    for page in range(1, max_pages + 1):
+        print(f"Scraping page {page}...")
+        
+       
+        paginated_url = f"{product_url}?page={page}"  
+
+        try:
+            response = requests.get(paginated_url, headers=headers)
+            if response.status_code != 200:
+                print(f"Failed to fetch page {page}, status code: {response.status_code}")
+                continue
+
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Find all review blocks
+            review_blocks = soup.find_all("div", class_="flex flex-column items-start self-stretch")
+            
+            for block in review_blocks:
+                try:
+                    
+                    review_text_tag = block.find("span", class_="tl-m db-m")
+                    review_text = review_text_tag.text.strip() if review_text_tag else "No review text"
+                    
+                    
+                    rating_tag = block.find_previous("span", class_="w_iUH7")
+                    rating_text = rating_tag.text.strip() if rating_tag else "No rating"
+
+                    reviews.append((review_text, rating_text))
+                except Exception as e:
+                    print(f"Error extracting data: {e}")
+                    continue
+            
+            time.sleep(2)  
+
+        except Exception as e:
+            print(f"Error on page {page}: {e}")
+            continue
+
+   
+    reviews_df = pd.DataFrame(reviews, columns=["review", "rating"])
+    return reviews_df
+
+
+product_url = "https://www.walmart.com/reviews/product/222918738"
+max_pages_to_scrape = 347
+reviews_df = scrape_walmart_reviews(product_url, max_pages=max_pages_to_scrape)
+
+
+file_path = r"C:\Users\berna\walmart_reviews.csv"
+reviews_df.to_csv(file_path, index=False)
+print(f"Scraping complete. Saved to '{file_path}'")
